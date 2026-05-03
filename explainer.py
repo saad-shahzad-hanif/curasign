@@ -1,16 +1,8 @@
-from google import genai
-from google.genai import types
-from google.genai.errors import ClientError, ServerError
 import streamlit as st
+from groq import Groq
+import base64
 
-GEMINI_API_KEY = st.secrets.get("GEMINI_API_KEY", "")
-
-print("KEY LENGTH:", len(GEMINI_API_KEY))
-
-
-def get_client(api_key: str = GEMINI_API_KEY):
-    return genai.Client(api_key=api_key)
-
+GROQ_API_KEY = st.secrets.get("GROQ_API_KEY", "")
 
 SYSTEM_PROMPT = """
 You are a friendly and knowledgeable medical assistant helping non-medical users understand their medical documents.
@@ -39,24 +31,11 @@ If the document is completely unreadable or not a medical document, say so hones
 """
 
 
-def _handle_error(e: Exception) -> str:
-    if isinstance(e, ClientError):
-        code = getattr(e, "code", None)
-        if code in (400, 401, 403):
-            return "❌ **Invalid API Key.** Please check your Gemini API key and try again."
-        if code == 429:
-            return "❌ **API quota exceeded.** You've hit the free tier limit. Try again later."
-        if code == 404:
-            return "❌ **Model not found.** Please ensure you are using `gemini-2.0-flash`."
-        return f"❌ **API error {code}:** {str(e)}"
-
-    if isinstance(e, ServerError):
-        return "❌ **Gemini API is temporarily unavailable.** Please try again in a moment."
-
-    return f"❌ **Unexpected error:** {str(e)}"
+def get_client(api_key: str = GROQ_API_KEY):
+    return Groq(api_key=api_key)
 
 
-def explain_from_text(text: str, api_key: str = GEMINI_API_KEY) -> str:
+def explain_from_text(text: str, api_key: str = GROQ_API_KEY) -> str:
     if not text or len(text.strip()) < 20:
         return (
             "❌ **Could not extract enough text from this PDF.**\n\n"
@@ -66,31 +45,42 @@ def explain_from_text(text: str, api_key: str = GEMINI_API_KEY) -> str:
         )
     try:
         client = get_client(api_key)
-        prompt = f"{SYSTEM_PROMPT}\n\nHere is the medical document text:\n\n{text}"
-        response = client.models.generate_content(
-            model="gemini-2.0-flash-lite",
-            contents=prompt,
+        response = client.chat.completions.create(
+            model="meta-llama/llama-4-scout-17b-16e-instruct",
+            messages=[
+                {"role": "user", "content": f"{SYSTEM_PROMPT}\n\nHere is the medical document text:\n\n{text}"}
+            ],
+            max_tokens=1500,
+            temperature=0.1
         )
-        return response.text
+        return response.choices[0].message.content
     except Exception as e:
-        return _handle_error(e)
+        return f"❌ **Error:** {str(e)}"
 
 
-def explain_from_image(image_bytes: bytes, api_key: str = GEMINI_API_KEY, mime_type: str = "image/jpeg") -> str:
+def explain_from_image(image_bytes: bytes, api_key: str = GROQ_API_KEY, mime_type: str = "image/jpeg") -> str:
     if not image_bytes:
         return "❌ **Empty image received.** Please upload a valid image file."
     try:
         client = get_client(api_key)
-        response = client.models.generate_content(
-            model="gemini-2.0-flash-lite",
-            contents=[
-                types.Part.from_bytes(data=image_bytes, mime_type=mime_type),
-                types.Part.from_text(text=SYSTEM_PROMPT),
+        b64_image = base64.b64encode(image_bytes).decode("utf-8")
+        response = client.chat.completions.create(
+            model="meta-llama/llama-4-scout-17b-16e-instruct",
+            messages=[
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "image_url", "image_url": {"url": f"data:{mime_type};base64,{b64_image}"}},
+                        {"type": "text", "text": SYSTEM_PROMPT}
+                    ]
+                }
             ],
+            max_tokens=1500,
+            temperature=0.1
         )
-        return response.text
+        return response.choices[0].message.content
     except Exception as e:
-        return _handle_error(e)
+        return f"❌ **Error:** {str(e)}"
 
 
 def get_image_mime_type(filename: str) -> str:
