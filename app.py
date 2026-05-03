@@ -1,5 +1,6 @@
 import streamlit as st
 import streamlit.components.v1 as components
+import icu_monitor
 from groq import Groq
 from PIL import Image
 import json
@@ -561,70 +562,75 @@ html, body, [class*="css"] { background: #f0f4ff; }
     #  GROQ API KEY
     # ============================================================
     API_KEY = st.secrets.get("GROQ_API_KEY", "")
+    page = st.sidebar.radio("Navigate", ["🩺 Medical Report", "🏥 ICU Monitor"])
 
-    st.markdown("""
-<div style="background:linear-gradient(135deg,#667eea,#764ba2);border-radius:20px;
-            padding:1.5rem 2rem;margin-bottom:2rem;display:flex;align-items:center;
-            gap:14px;box-shadow:0 8px 32px rgba(102,126,234,0.3);">
-  <span style="font-size:2.2rem;">🩺</span>
-  <div>
-    <div style="font-family:Nunito,sans-serif;font-size:1.8rem;font-weight:900;color:white;margin:0;">
-      CuraSign AI
-    </div>
-    <div style="font-size:0.85rem;color:rgba(255,255,255,0.75);margin:0;">
-      Your Intelligent Healthcare Assistant — Scan. Analyze. Understand.
-    </div>
-  </div>
-</div>
-""", unsafe_allow_html=True)
+    if page == "🏥 ICU Monitor":
+        icu_monitor.show()
+        return
 
-    uploaded_file = st.file_uploader(
-        "Upload Medical Report Image",
-        type=["jpg", "jpeg", "png"],
-        label_visibility="collapsed"
-    )
-
-    if uploaded_file is not None:
-        col_img, col_info = st.columns([1, 2])
-        with col_img:
-            st.image(uploaded_file, caption="Uploaded Report", use_container_width=True)
-        with col_info:
-            st.markdown("""
-<div style="padding:1rem 0;">
-  <div style="color:#48bb78;font-size:0.9rem;font-weight:700;font-family:Nunito,sans-serif;">
-    ✅ Image uploaded successfully
-  </div>
-  <div style="color:#888;font-size:0.85rem;margin-top:6px;">AI is analyzing your report...</div>
-</div>
-""", unsafe_allow_html=True)
-
-        with st.spinner("🔄 Analyzing your report..."):
-            try:
-                image_bytes = uploaded_file.read()
-                data, error = get_text(image_bytes, API_KEY)
-                if error:
-                    st.error(f"❌ Error: {error}")
-                    st.info("💡 Check your Groq API key at: https://console.groq.com")
-                else:
-                    display_dashboard(data)
-            except Exception as e:
-                st.error(f"❌ Something went wrong: {str(e)}")
-    else:
         st.markdown("""
-<div style="background:white;border-radius:24px;padding:4rem 2rem;text-align:center;
-            box-shadow:0 4px 24px rgba(0,0,0,0.06);border:2px dashed #c3d0f5;margin-top:1rem;">
-  <div style="font-size:4rem;margin-bottom:1rem;">📤</div>
-  <div style="font-family:Nunito,sans-serif;font-size:1.4rem;font-weight:800;color:#1a1a2e;">
-    Upload Your Medical Report
-  </div>
-  <div style="font-size:0.88rem;color:#888;margin-top:6px;">JPG or PNG</div>
-  <div style="margin-top:1.5rem;display:flex;justify-content:center;gap:2rem;flex-wrap:wrap;">
-    <span style="font-size:0.8rem;color:#667eea;font-weight:600;">✔ Clear, well-lit image</span>
-    <span style="font-size:0.8rem;color:#667eea;font-weight:600;">✔ All values visible</span>
-    <span style="font-size:0.8rem;color:#667eea;font-weight:600;">✔ No blurry images</span>
-  </div>
-</div>
-""", unsafe_allow_html=True)
+    <div style="background:linear-gradient(135deg,#667eea,#764ba2);border-radius:20px;
+                padding:1.5rem 2rem;margin-bottom:2rem;display:flex;align-items:center;
+                gap:14px;box-shadow:0 8px 32px rgba(102,126,234,0.3);">
+      <span style="font-size:2.2rem;">🩺</span>
+      <div>
+        <div style="font-family:Nunito,sans-serif;font-size:1.8rem;font-weight:900;color:white;margin:0;">
+          CuraSign AI
+        </div>
+        <div style="font-size:0.85rem;color:rgba(255,255,255,0.75);margin:0;">
+          Your Intelligent Healthcare Assistant — Scan. Analyze. Understand.
+        </div>
+      </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+        uploaded_file = st.file_uploader(
+            "Upload Medical Report Image",
+            type=["jpg", "jpeg", "png"],
+            label_visibility="collapsed"
+        )
+
+        if uploaded_file is not None:
+            col_img, col_info = st.columns([1, 2])
+            with col_img:
+                st.image(uploaded_file, caption="Uploaded Report", use_container_width=True)
+            with col_info:
+                st.markdown("""
+    <div style="padding:1rem 0;">
+      <div style="color:#48bb78;font-size:0.9rem;font-weight:700;font-family:Nunito,sans-serif;">
+        ✅ Image uploaded successfully
+      </div>
+      <div style="color:#888;font-size:0.85rem;margin-top:6px;">AI is analyzing your report...</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+            with st.spinner("🔄 Analyzing your report..."):
+                try:
+                    image_bytes = uploaded_file.read()
+                    data, error = get_text(image_bytes, API_KEY)
+                    if error:
+                        st.error(f"❌ Error: {error}")
+                        st.info("💡 Check your Groq API key at: https://console.groq.com")
+                    else:
+                        display_dashboard(data)
+                except Exception as e:
+                    st.error(f"❌ Something went wrong: {str(e)}")
+        else:
+            st.markdown("""
+    <div style="background:white;border-radius:24px;padding:4rem 2rem;text-align:center;
+                box-shadow:0 4px 24px rgba(0,0,0,0.06);border:2px dashed #c3d0f5;margin-top:1rem;">
+      <div style="font-size:4rem;margin-bottom:1rem;">📤</div>
+      <div style="font-family:Nunito,sans-serif;font-size:1.4rem;font-weight:800;color:#1a1a2e;">
+        Upload Your Medical Report
+      </div>
+      <div style="font-size:0.88rem;color:#888;margin-top:6px;">JPG or PNG</div>
+      <div style="margin-top:1.5rem;display:flex;justify-content:center;gap:2rem;flex-wrap:wrap;">
+        <span style="font-size:0.8rem;color:#667eea;font-weight:600;">✔ Clear, well-lit image</span>
+        <span style="font-size:0.8rem;color:#667eea;font-weight:600;">✔ All values visible</span>
+        <span style="font-size:0.8rem;color:#667eea;font-weight:600;">✔ No blurry images</span>
+      </div>
+    </div>
+    """, unsafe_allow_html=True)
 
 
 if __name__ == "__main__":
